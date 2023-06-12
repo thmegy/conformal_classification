@@ -22,7 +22,7 @@ class ConformalModel(nn.Module):
         self.T, calib_logits = platt(self, calib_loader)
         self.randomized=randomized
         self.allow_zero_sets=allow_zero_sets
-        self.num_classes = len(calib_loader.dataset.dataset.classes)
+        self.num_classes = len(calib_loader.dataset.classes)
 
         if kreg == None or lamda == None:
             kreg, lamda, calib_logits = pick_parameters(model, calib_logits, alpha, kreg, lamda, randomized, allow_zero_sets, pct_paramtune, batch_size, lamda_criterion)
@@ -43,7 +43,8 @@ class ConformalModel(nn.Module):
         
         with torch.no_grad():
             logits_numpy = logits.detach().cpu().numpy()
-            scores = softmax(logits_numpy/self.T.item(), axis=1)
+#            scores = softmax(logits_numpy/self.T.item(), axis=1)
+            scores = softmax(logits_numpy, axis=1)
 
             I, ordered, cumsum = sort_sum(scores)
 
