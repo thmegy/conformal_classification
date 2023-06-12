@@ -12,6 +12,8 @@ import random
 import mmpretrain
 import tqdm
 import json
+import matplotlib.pyplot as plt
+from uncertainties import unumpy
 
 parser = argparse.ArgumentParser(description='Conformalize Torchvision Model on Imagenet')
 parser.add_argument('--data_calib', metavar='IMAGENETVALDIR', help='path to Imagenet Val')
@@ -128,7 +130,7 @@ if __name__ == "__main__":
         coverage = covered[mask].sum() / len(covered[mask])
         avg_size = size[mask].mean()
         print(f'{cls: <60}{accuracy: ^10.2f}{coverage: ^10.2f}{avg_size: ^15.2f}')
-
+        
     print('')
     print(f'{"prediction-set size" : <60}{"N_sample": ^10}{"coverage": ^10}')
     for isize in range(size.max()):
@@ -139,13 +141,32 @@ if __name__ == "__main__":
 
     print('')
     print(f'{"true-class ranking" : <60}{"N_sample": ^10}{"average size": ^15}')
+    median = []
+    mean = []
+    uncertainty_mean = [] # statistical uncertainty on the mean size of each ranking
     for idiff in range(ranking.max()+1):
         mask = (ranking == idiff)
-        avg_size = size[mask].mean()
-        print(f'{idiff: <60}{mask.sum(): ^10.2f}{avg_size: ^15.2f}')
-        
-        
-        
 
+        median.append(np.median(size[mask]))
         
+        size_hist = np.array([(size[mask]==isize+1).sum() for isize in range(size[mask].max())])
+        unc_var = unumpy.uarray(size_hist.tolist(), np.sqrt(size_hist).tolist())
+        unc_var_mean = (unc_var * np.arange(1,size[mask].max()+1)).sum() / unc_var.sum()
+        avg_size = unumpy.nominal_values(unc_var_mean)
+        uncert = unumpy.std_devs(unc_var_mean)
+        mean.append(avg_size)
+        uncertainty_mean.append(uncert)
+        
+        print(f'{idiff: <60}{mask.sum(): ^10.2f}{avg_size: ^15.2f}')
+
+
+    fig, ax = plt.subplots()
+    ax.set_xlabel('true-class ranking')
+    ax.set_ylabel('prediction-set size')
+
+    ax.errorbar(range(ranking.max()+1), mean, yerr=uncertainty_mean, linestyle="None", marker='o', color='black', label='mean')
+    ax.plot(range(ranking.max()+1), median, linestyle="None", marker='o', color='red', label='median')
     
+    ax.legend()
+    fig.set_tight_layout(True)
+    fig.savefig(f'size_vs_ranking.png')
